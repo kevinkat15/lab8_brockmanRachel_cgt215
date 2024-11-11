@@ -15,79 +15,77 @@ const int MAX_SHOTS = 5;
 
 void LoadTex(Texture& tex, string filename) {
     if (!tex.loadFromFile(filename)) {
-        cout << " Could not load " << filename << endl;
+        cout << "Could not load " << filename << endl;
     }
 }
 
-Vector2f GetTextSize(Text text) {
+Vector2f GetTextSize(const Text& text) {
     FloatRect r = text.getGlobalBounds();
     return Vector2f(r.width, r.height);
 }
 
-int main()
-{
+int main() {
     RenderWindow window(VideoMode(800, 600), "Duck Hunter");
     World world(Vector2f(0, 0));
-    int score(0);
-    int arrows(MAX_SHOTS);
+    int score = 0;
+    int arrows = MAX_SHOTS;
     bool gameEnded = false;
 
-    PhysicsSprite arrow;
+    PhysicsSprite crossbow;
     Texture cbowTex;
     LoadTex(cbowTex, "crossbow.png");
-    crossBow.setTexture(cbowTex);
-    Vector2f sz = crossBow.getSize();
-    crossBow.setCenter(Vector2f(400, 600 - (sz.y / 2)));
+    crossbow.setTexture(cbowTex);
+    crossbow.setCenter(Vector2f(400, 550));
 
     PhysicsSprite arrow;
     Texture arrowTex;
     LoadTex(arrowTex, "arrow.png");
     arrow.setTexture(arrowTex);
-    bool drawingArrow(false);
+    bool drawingArrow = false;
 
-    PhysicsRectangle right;
-    right.setSize(Vector2f(10, 600));
-    right.setCenter(Vector2f(795, 300));
-    right.setStatic(true);
-    world.AddPhysicsBody(right);
+    PhysicsRectangle rightWall;
+    rightWall.setSize(Vector2f(10, 600));
+    rightWall.setCenter(Vector2f(795, 300));
+    rightWall.setStatic(true);
+    world.AddPhysicsBody(rightWall);
 
-    PhysicsRectangle top;
-    top.setSize(Vector2f(10, 600));
-    top.setCenter(Vector2f(400, 5));
-    top.setStatic(true);
-    world.AddPhysicsBody(top);
+    PhysicsRectangle topWall;
+    topWall.setSize(Vector2f(800, 10));
+    topWall.setCenter(Vector2f(400, 5));
+    topWall.setStatic(true);
+    world.AddPhysicsBody(topWall);
 
     Texture duckTex;
     LoadTex(duckTex, "duck.png");
-    PhysicsShapeList<PhyisicsSprite> ducks;
+    PhysicsShapeList<PhysicsSprite> ducks;
     int duckSpawnTimer = 2000;
     Clock spawnClock;
 
-    right.onCollision = [&ducks, &world](PhysicsBodyCollisionResult result) {
+    rightWall.onCollision = [&ducks, &world](PhysicsBodyCollisionResult result) {
         for (PhysicsSprite& duck : ducks) {
             if (result.object == duck) {
-                world.removePhysicsBody(duck);
+                world.RemovePhysicsBody(duck);
                 ducks.QueueRemove(duck);
             }
         }
         };
 
-    top.onCollision = [&drawingArrow, &world, &arrow]
-    (PhysicsBodyCollisionResult result) {
-        drawingArrow = false;
-        world.RemovePysicsBody(arrow);
-
+    topWall.onCollision = [&drawingArrow, &world, &arrow](PhysicsBodyCollisionResult result) {
+        if (result.object == arrow) {
+            drawingArrow = false;
+            world.RemovePhysicsBody(arrow);
+        }
         };
 
     Font fnt;
     if (!fnt.loadFromFile("arial.ttf")) {
         cout << "Could not load font." << endl;
-        exit(3);
+        return -1;
     }
 
     Clock clock;
-    Time lastTime(clock.getElapsedTime());
-    Time currentTime(lastTime);
+    Time lastTime = clock.getElapsedTime();
+    Time currentTime;
 
     while (window.isOpen()) {
         currentTime = clock.getElapsedTime();
@@ -99,17 +97,15 @@ int main()
             if (event.type == Event::Closed) {
                 window.close();
             }
-            if (event.type == event::KeyPressed && gameEnded && event.keycode == Keyboard::Space) {
+            if (event.type == Event::KeyPressed && gameEnded && event.key.code == Keyboard::Space) {
                 window.close();
             }
         }
 
         if (gameEnded) {
             window.clear();
-            Text gameOverText;
-            gameOverText.setString("GAME OVER");
-            gameOverText.setFont(fnt);
-            sz = GetTexSize(gameOverText);
+            Text gameOverText("GAME OVER", fnt, 30);
+            int sz = GetTextSize(gameOverText);
             gameOverText.setPosition(400 - (sz.x / 2), 300 - (sz.y / 2));
             window.draw(gameOverText);
             window.display();
@@ -123,12 +119,13 @@ int main()
             if (Keyboard::isKeyPressed(Keyboard::Space) && !drawingArrow && arrows > 0) {
                 drawingArrow = true;
                 arrows--;
-                arrow.setCenter(crossBow.getCenter());
-                arrow.setVelocity(Vector2f(0, -1));
+                arrow.setCenter(crossbow.getCenter());
+                arrow.setVelocity(Vector2f(0, -1)); 
                 world.AddPhysicsBody(arrow);
             }
 
-            if (spawnClock.getElapsedTime().asMillisevonds() >= duckSpawnTimer) {
+    
+            if (spawnClock.getElapsedTime().asMilliseconds() >= duckSpawnTimer) {
                 spawnClock.restart();
                 PhysicsSprite& duck = ducks.Create();
                 duck.setTexture(duckTex);
@@ -136,43 +133,40 @@ int main()
                 duck.setCenter(Vector2f(-sz.x / 2, 50 + (sz.y / 2)));
                 duck.setVelocity(Vector2f(0.15, 0));
                 world.AddPhysicsBody(duck);
-                duck.onCollision = [&drawingArrow, &world, &arrow, &duck, &ducks, &score]
-                (PhysicsBodyCollisionResult result) {
+
+                duck.onCollision = [&drawingArrow, &world, &arrow, &duck, &ducks, &score](PhysicsBodyCollisionResult result) {
                     if (result.object2 == arrow) {
                         drawingArrow = false;
                         world.RemovePhysicsBody(arrow);
                         world.RemovePhysicsBody(duck);
-                        ducks.QueueRemove(duck) :
-                            score += 10;
+                        ducks.QueueRemove(duck);
+                        score += 10;
                     }
-
                     };
-
             }
 
             window.clear();
 
+   
             if (drawingArrow) {
                 window.draw(arrow);
             }
 
+    
             ducks.DoRemovals();
 
             for (PhysicsShape& duck : ducks) {
                 window.draw((PhysicsSprite&)duck);
             }
 
-            window.draw(crossBow);
+            window.draw(crossbow);
 
-            Text scoreText;
-            scoreText.setString("Score: " + to_string(score));
-            scoreText.setFont(fnt);
+         
+            Text scoreText("Score: " + to_string(score), fnt, 20);
             scoreText.setPosition(Vector2f(790 - GetTextSize(scoreText).x, 580));
             window.draw(scoreText);
 
-            Text arrowCountText;
-            arrowCountText.setString("Arrows: " + to_string(arrows));
-            arrowCounttext.setFont(fnt);
+            Text arrowCountText("Arrows: " + to_string(arrows), fnt, 20);
             arrowCountText.setPosition(Vector2f(10, 580));
             window.draw(arrowCountText);
 
@@ -184,7 +178,6 @@ int main()
         }
     }
     return 0;
-
 }
 
 
